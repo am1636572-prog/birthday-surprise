@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Happy Birthday Chand: 3D Cake</title>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#12060f;--tx:#ffe9d6;--gold:#f0c674;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}html,body{width:100%;height:100%;margin:0;padding:0;background:var(--bg);color:var(--tx);font-family:'Plus Jakarta Sans',system-ui,sans-serif;overflow:hidden;overscroll-behavior:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block;cursor:default}#gl:active{cursor:default}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+.ttl{position:fixed;top:calc(18px + env(safe-area-inset-top,0px));left:0;right:0;text-align:center;pointer-events:none;text-shadow:0 2px 18px rgba(0,0,0,.7)}
+.ttl small{display:block;letter-spacing:.42em;font-size:.68rem;color:#d9b98a;text-transform:uppercase}
+.ttl b{display:block;font-family:'Great Vibes',cursive;font-weight:400;font-size:clamp(3rem,15vw,4.6rem);line-height:1;background:linear-gradient(135deg,#fff3c4,#f0c674 55%,#c98f3a);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 14px rgba(240,198,116,.35))}
+.hint{position:fixed;left:0;right:0;bottom:calc(86px + env(safe-area-inset-bottom,0px));text-align:center;font-size:.8rem;color:#cdb7c4;opacity:.85;pointer-events:none;transition:opacity 1s}
+.bar{position:fixed;left:0;right:0;bottom:calc(8px + env(safe-area-inset-bottom,0px));display:flex;gap:10px;justify-content:center;padding:0 14px}
+.bar button{font:700 .9rem inherit;font-family:inherit;color:var(--tx);background:rgba(40,14,32,.55);border:1px solid rgba(240,198,116,.45);border-radius:40px;padding:11px 17px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.bar button.pri{background:linear-gradient(135deg,#f0c674,#c98f3a);color:#3a1620;border-color:transparent}.bar button:active{transform:scale(.96)}
+@media(max-width:560px){.ttl{top:calc(12px + env(safe-area-inset-top,0px))}.ttl small{font-size:.58rem;letter-spacing:.32em}.ttl b{font-size:clamp(2.7rem,14vw,4rem)}.bar{flex-wrap:wrap;gap:7px;padding:0 10px}.bar button{font-size:.78rem;padding:9px 12px}.hint{bottom:calc(112px + env(safe-area-inset-bottom,0px));font-size:.72rem}}
+@media(max-width:380px){.bar button{font-size:.72rem;padding:8px 10px}.hint{bottom:calc(108px + env(safe-area-inset-bottom,0px))}}
+#wish{position:fixed;left:0;right:0;top:34%;text-align:center;font-family:'Great Vibes',cursive;font-size:clamp(2.2rem,10vw,3.4rem);color:#fff3c4;text-shadow:0 0 22px rgba(240,198,116,.7),0 2px 10px #000;opacity:0;transform:scale(.8);transition:opacity 1s,transform 1s;pointer-events:none;padding:0 16px}
+#wish.on{opacity:1;transform:none}
+#err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:30px;background:var(--bg);color:#ffb3c6;z-index:9}
+</style></head><body>
+<canvas id="gl"></canvas><canvas id="fx"></canvas>
+<div class="ttl"><small>Happy Birthday</small><b id="nm"></b></div>
+<div id="wish"></div><div class="hint" id="hint">Drag to rotate 👆</div>
+<div class="bar"><button class="pri" id="b1">🎂 Blow the candles</button><button id="b2">🎤 Blow (mic)</button><button id="b3">🔄 Auto-rotate</button></div>
+<div id="err"></div>
+<script id="fs" type="x-shader/x-fragment">
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform vec2 uR;uniform float uT,uYaw,uPit,uDist,uLit,uSm;uniform sampler2D uBand,uPlq,uNm;
+float gId,gFl,gSm;
+float h1(float n){return fract(sin(n)*43758.5453);}
+float h3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
+vec2 mn(vec2 a,vec2 b){return a.x<b.x?a:b;}
+float smin(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}
+float sdCyl(vec3 p,float r,float h){vec2 d=abs(vec2(length(p.xz),p.y))-vec2(r,h);return min(max(d.x,d.y),0.)+length(max(d,0.));}
+float sdRC(vec3 p,float r,float h,float e){vec2 d=abs(vec2(length(p.xz),p.y))-vec2(r-e,h-e);return min(max(d.x,d.y),0.)+length(max(d,0.))-e;}
+float sdCap(vec3 p,vec3 a,vec3 b,float r){vec3 pa=p-a,ba=b-a;float h=clamp(dot(pa,ba)/dot(ba,ba),0.,1.);return length(pa-ba*h)-r;}
+float sdBox(vec3 p,vec3 b,float e){vec3 q=abs(p)-b+e;return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.)-e;}
+vec3 rep(vec3 p,float n,float off){float a=atan(p.x,p.z)-off;float s=6.2831853/n;gId=floor(a/s+.5);float la=a-gId*s;float r=length(p.xz);return vec3(sin(la)*r,p.y,cos(la)*r);}
+vec2 map(vec3 p){
+  vec3 q;float d;vec2 r;
+  r=vec2(sdCyl(p-vec3(0.,-.035,0.),3.05,.035),1.);
+  r=mn(r,vec2(length(vec2(length(p.xz)-3.05,p.y+.035))-.05,2.));
+  d=smin(sdCyl(p-vec3(0.,-.6,0.),.4,.5),sdCyl(p-vec3(0.,-1.12,0.),1.4,.07),.3);r=mn(r,vec2(d,2.));
+  d=sdRC(p-vec3(0.,.6,0.),2.2,.6,.07)-.004*sin(atan(p.x,p.z)*90.);r=mn(r,vec2(d,3.));
+  q=rep(p-vec3(0.,.1,0.),44.,0.);d=length(q-vec3(0.,0.,2.24))-.09;r=mn(r,vec2(d,mod(gId,2.)<.5?2.:7.));
+  q=rep(p-vec3(0.,1.2,0.),36.,0.);d=length(vec3(q.x*1.2,q.y*1.5,(q.z-2.08)*.85))-.12;r=mn(r,vec2(d,3.));
+  r=mn(r,vec2(sdRC(p-vec3(0.,1.725,0.),1.55,.525,.06),4.));
+  r=mn(r,vec2(sdRC(p-vec3(0.,1.52,0.),1.575,.15,.02),13.));
+  q=rep(p-vec3(0.,1.28,0.),34.,0.);d=length(q-vec3(0.,0.,1.6))-.075;r=mn(r,vec2(d,mod(gId,2.)<.5?2.:7.));
+  q=rep(p-vec3(0.,2.25,0.),28.,0.);d=length(vec3(q.x*1.2,q.y*1.5,(q.z-1.42)*.85))-.1;r=mn(r,vec2(d,4.));
+  r=mn(r,vec2(sdRC(p-vec3(0.,2.7,0.),.95,.45,.05),5.));
+  q=rep(p-vec3(0.,2.34,0.),22.,0.);d=length(q-vec3(0.,0.,.99))-.062;r=mn(r,vec2(d,mod(gId,2.)<.5?2.:7.));
+  r=mn(r,vec2(sdRC(p-vec3(0.,3.18,0.),.97,.035,.03),6.));
+  q=rep(p,13.,0.);d=sdCap(q,vec3(0.,3.18,.955),vec3(0.,3.18-(.1+.4*h1(gId)),.955),.065);r=mn(r,vec2(d,6.));
+  q=rep(p,10.,0.);
+  if(mod(gId,2.)<.5){vec3 s=q-vec3(0.,3.34,.78);float tp=1.+clamp(s.y,-.2,.2)*2.4;d=(length(vec3(s.x/tp,s.y,s.z/tp)/vec3(.12,.15,.12))-1.)*.1;r=mn(r,vec2(d,8.));r=mn(r,vec2(length(vec3(s.x,(s.y-.15)*3.,s.z))-.08,9.));}
+  else{r=mn(r,vec2(length(q-vec3(.07,3.28,.78))-.062,10.));r=mn(r,vec2(length(q-vec3(-.07,3.275,.8))-.058,10.));}
+  q=rep(p,5.,.314159);
+  r=mn(r,vec2(sdCyl(q-vec3(0.,3.455,.55),.034,.24),11.));
+  gFl=sdCap(q,vec3(0.,3.72,.55),vec3(0.,3.8+.02*sin(uT*9.+gId*2.),.55),.028);
+  gSm=sdCap(q,vec3(0.,3.74,.55),vec3(.06*sin(uT*2.+gId),3.74+min(uSm,3.5)*.55,.55),.02);
+  r=mn(r,vec2(sdBox(p-vec3(0.,3.39,0.),vec3(.4,.17,.022),.02),12.));
+  return r;
+}
+vec2 isect(vec3 ro,vec3 rd,float R,float y0,float y1){
+  float a=dot(rd.xz,rd.xz)+1e-6,b=dot(ro.xz,rd.xz),c=dot(ro.xz,ro.xz)-R*R;float disc=b*b-a*c;if(disc<0.)return vec2(1.,-1.);
+  float sq=sqrt(disc);float t0=(-b-sq)/a,t1=(-b+sq)/a;float iy=1./(abs(rd.y)<1e-5?1e-5:rd.y);float ta=(y0-ro.y)*iy,tb=(y1-ro.y)*iy;
+  return vec2(max(t0,min(ta,tb)),min(t1,max(ta,tb)));}
+vec3 nrm(vec3 p){vec2 e=vec2(1.,-1.)*.0008;return normalize(e.xyy*map(p+e.xyy).x+e.yyx*map(p+e.yyx).x+e.yxy*map(p+e.yxy).x+e.xxx*map(p+e.xxx).x);}
+float sh(vec3 p,vec3 l){vec2 b=isect(p,l,3.3,-1.25,4.2);if(b.y<=b.x||b.y<0.)return 1.;float res=1.,t=max(b.x,.02),tm=min(b.y,7.);
+  for(int i=0;i<24;i++){float d=map(p+l*t).x;res=min(res,9.*d/t);t+=clamp(d,.03,.4);if(res<.002||t>tm)break;}return clamp(res,0.,1.);}
+float aoc(vec3 p,vec3 n){float o=0.,s=1.;for(int i=0;i<5;i++){float h=.02+.11*float(i);o+=(h-map(p+n*h).x)*s;s*=.72;}return clamp(1.-2.4*o,0.,1.);}
+vec3 env(vec3 d){vec3 c=mix(vec3(.05,.025,.05),vec3(.5,.38,.46),smoothstep(-.3,1.,d.y));
+  c+=vec3(1.,.9,.8)*smoothstep(.5,0.,length(d-normalize(vec3(-.55,.85,.65))))*2.4;
+  c+=vec3(.9,.5,.75)*smoothstep(.55,0.,length(d-normalize(vec3(.9,.25,.4))))*.9;
+  c+=vec3(.6,.45,1.)*smoothstep(.45,0.,length(d-normalize(vec3(.2,.5,-.95))))*1.3;return c;}
+vec3 bg(vec2 uv){vec3 c=mix(vec3(.1,.035,.09),vec3(.02,.008,.03),clamp(length(uv)*.9,0.,1.));c+=vec3(.3,.1,.17)*smoothstep(.95,0.,length(uv-vec2(0.,.2)))*.45;
+  for(int i=0;i<14;i++){float f=float(i);vec2 bp=vec2(sin(f*7.3+uT*.07*(1.+f*.1)),cos(f*3.7+uT*.05))*vec2(.9,.8);float br=.03+.05*h1(f);c+=vec3(1.,.72,.82)*smoothstep(br,br*.6,length(uv-bp))*.07*(.5+.5*sin(uT*.8+f));}return c;}
+vec3 shade(vec3 p,vec3 rd,vec3 n,float id,float ao){
+  vec3 base=vec3(.9);float rough=.5,met=0.;
+  if(id<.5){float pool=smoothstep(8.,0.,length(p.xz));base=vec3(.09,.04,.075)*(.5+pool);rough=.35;}
+  else if(id<1.5){base=vec3(.97,.95,.92);rough=.22;float rg=smoothstep(.02,0.,abs(abs(length(p.xz)-2.78)-.05)-.012);base=mix(base,vec3(.9,.7,.3),rg);}
+  else if(id<2.5){base=vec3(1.,.78,.36);rough=.22;met=1.;}
+  else if(id<3.5||(id>4.5&&id<5.5)){base=vec3(1.,.95,.88);rough=.7;
+    if(id<3.5&&p.y>.3&&p.y<1.05&&length(p.xz)>2.1&&abs(n.y)<.5){float a=atan(p.x,p.z);vec2 uv=vec2(a/6.2831853*3.,(p.y-.38)/.575);
+      if(uv.y>0.&&uv.y<1.){vec4 t0=texture2D(uNm,uv,-.5);vec4 tx=texture2D(uNm,uv+vec2(.0006,0.));vec4 ty=texture2D(uNm,uv+vec2(0.,.004));
+        vec3 T=vec3(cos(a),0.,-sin(a));n=normalize(n-T*(tx.a-t0.a)*3.-vec3(0.,1.,0.)*(ty.a-t0.a)*1.2);
+        base=mix(base,t0.rgb*1.35,t0.a);met=t0.a*.5;rough=mix(rough,.3,t0.a);}}}
+  else if(id<4.5){base=vec3(.96,.62,.74);rough=.6;float fk=step(.984,h3(floor(p*36.)));base=mix(base,vec3(1.,.8,.35),fk);met=fk;}
+  else if(id<6.5){base=vec3(.16,.065,.05);rough=.16;}
+  else if(id<7.5){base=vec3(.99,.97,.94);rough=.18;}
+  else if(id<8.5){base=vec3(.82,.04,.09);rough=.28;float sd=step(.93,h3(floor(p*68.)));base=mix(base,vec3(1.,.85,.4),sd*.8);}
+  else if(id<9.5){base=vec3(.16,.5,.18);rough=.4;}
+  else if(id<10.5){base=vec3(.09,.11,.34);rough=.5;}
+  else if(id<11.5){vec3 q=rep(p,5.,.314159);float s=sin(q.y*70.+atan(q.x,q.z-.55)*3.);base=mix(vec3(1.,.97,.93),vec3(.95,.42,.58),step(0.,s));rough=.35;}
+  else if(id<12.5){vec2 uv=vec2(.5+p.x/.8*(n.z>0.?1.:-1.),(p.y-3.22)/.34);vec4 tx=texture2D(uPlq,uv);float f=smoothstep(.5,.9,abs(n.z));base=mix(vec3(1.,.78,.36),tx.rgb,f);met=mix(1.,step(.5,tx.r)*.9,f);rough=.3;}
+  else{vec2 uv=vec2(atan(p.x,p.z)/6.2831853+.5,(p.y-1.37)/.3);vec4 tx=texture2D(uBand,uv);float sd=smoothstep(.6,.95,1.-abs(n.y));base=mix(vec3(1.,.78,.36),tx.rgb,sd);met=mix(1.,step(.55,tx.r)*.8,sd);rough=.3;}
+  vec3 L1=normalize(vec3(-.55,.85,.65)),L2=normalize(vec3(.9,.25,.4)),L3=normalize(vec3(.2,.5,-.95));
+  float s1=sh(p+n*.012,L1);
+  vec3 col=base*(vec3(1.,.93,.82)*2.1*max(dot(n,L1),0.)*s1+vec3(.9,.6,.75)*.5*max(dot(n,L2),0.)+vec3(.65,.45,.95)*1.1*max(dot(n,L3),0.)+vec3(.22,.15,.2)*(.6+.4*n.y))*ao;
+  vec3 ld=vec3(0.,3.9,0.)-p;float dd=dot(ld,ld);col+=base*vec3(1.,.62,.3)*uLit*2.6*max(dot(n,normalize(ld)),0.)/(1.+dd*.9)*ao;
+  col*=1.-met;
+  vec3 rr=reflect(rd,n);float fr=pow(1.-max(dot(n,-rd),0.),5.);vec3 F0=mix(vec3(.04),base,met);vec3 F=F0+(1.-F0)*fr;
+  col+=env(rr)*F*(1.-rough*.8)*ao;
+  vec3 hv=normalize(L1-rd);col+=mix(vec3(1.),base,met)*pow(max(dot(n,hv),0.),mix(10.,200.,1.-rough))*(1.-rough)*s1*2.2;
+  return col;}
+void main(){
+  vec2 uv=(gl_FragCoord.xy-.5*uR)/uR.y;vec3 ta=vec3(0.,1.92,0.);
+  vec3 ro=ta+uDist*vec3(cos(uPit)*sin(uYaw),sin(uPit),cos(uPit)*cos(uYaw));
+  vec3 ww=normalize(ta-ro),uu=normalize(cross(ww,vec3(0.,1.,0.))),vv=cross(uu,ww);vec3 rd=normalize(uv.x*uu+uv.y*vv+1.9*ww);
+  vec3 col=bg(uv);float tf=1e5;if(rd.y<-.0001)tf=(-1.2-ro.y)/rd.y;
+  vec2 bn=isect(ro,rd,3.3,-1.25,4.2);float tH=-1.,id=-1.,glow=0.,smk=0.;float sf=smoothstep(3.6,0.,uSm)*(1.-uLit);
+  if(bn.y>bn.x&&bn.y>0.){float t=max(bn.x,0.),tm=min(bn.y,tf);
+    for(int i=0;i<84;i++){vec2 r=map(ro+rd*t);float st=clamp(r.x,.02,.1);glow+=uLit*exp(-gFl*12.)*st*3.35;smk+=sf*exp(-gSm*14.)*st;
+      if(r.x<.0012*t){tH=t;id=r.y;break;}t+=r.x*.92;if(t>tm)break;}}
+  if(tH>0.){vec3 p=ro+rd*tH;vec3 n=nrm(p);col=shade(p,rd,n,id,aoc(p,n));}
+  else if(tf<1e4){vec3 p=ro+rd*tf;vec3 n=vec3(0.,1.,0.);float ao=1.-.55*smoothstep(3.6,2.9,length(p.xz))*0.;col=shade(p,rd,n,0.,1.);float fog=exp(-.045*tf);col=mix(bg(uv),col,clamp(fog,0.,1.)*smoothstep(14.,5.,length(p.xz)));}
+  col+=glow*vec3(1.,.48,.12)*2.15+glow*glow*vec3(1.,.9,.52)*1.15;col=mix(col,vec3(.75,.7,.72),clamp(smk*.7,0.,.55));
+  col=col*(2.51*col+.03)/(col*(2.43*col+.59)+.14);col=pow(clamp(col,0.,1.),vec3(1./2.2));col*=1.-.4*dot(uv,uv);
+  gl_FragColor=vec4(col,1.);}
+</script>
+<script>
+(function(){
+const NAME='Chand',$=id=>document.getElementById(id);$('nm').textContent=NAME;
+const cv=$('gl'),fx=$('fx'),fc=fx.getContext('2d');
+function fail(m){const e=$('err');e.style.display='flex';e.textContent=m;console.error(m)}
+const gl=cv.getContext('webgl',{antialias:false,alpha:false,powerPreference:'high-performance'})||cv.getContext('experimental-webgl');
+if(!gl){fail('3D is not supported on this phone or browser. Please try the latest Chrome or Safari.');return}
+function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)){fail('Shader error: '+gl.getShaderInfoLog(o));return null}return o}
+const vs=sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'),fs=sh(gl.FRAGMENT_SHADER,$('fs').textContent);if(!vs||!fs)return;
+const pr=gl.createProgram();gl.attachShader(pr,vs);gl.attachShader(pr,fs);gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS)){fail('Link error: '+gl.getProgramInfoLog(pr));return}
+gl.useProgram(pr);const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+const al=gl.getAttribLocation(pr,'a');gl.enableVertexAttribArray(al);gl.vertexAttribPointer(al,2,gl.FLOAT,false,0,0);
+const U={};['uR','uT','uYaw','uPit','uDist','uLit','uSm','uBand','uPlq','uNm'].forEach(k=>U[k]=gl.getUniformLocation(pr,k));
+// ---- textures with the name
+const FONT='"Great Vibes",cursive';
+function gold(x,y0,y1){const g=x.createLinearGradient(0,y0,0,y1);g.addColorStop(0,'#fff3c4');g.addColorStop(.5,'#e8b650');g.addColorStop(1,'#b8832c');return g}
+function bandCv(){const c=document.createElement('canvas');c.width=2048;c.height=256;const x=c.getContext('2d');
+  let g=x.createLinearGradient(0,0,0,256);g.addColorStop(0,'#5a1230');g.addColorStop(.5,'#8a1f48');g.addColorStop(1,'#4a0f28');x.fillStyle=g;x.fillRect(0,0,2048,256);
+  x.fillStyle='#e8c070';[[10,6],[240,6],[22,2],[232,2]].forEach(a=>x.fillRect(0,a[0],2048,a[1]));
+  x.textAlign='center';x.textBaseline='middle';x.fillStyle=gold(x,60,200);x.font='118px '+FONT;
+  for(let i=0;i<2;i++){x.fillText('Happy Birthday '+NAME,512+i*1024,128)}x.font='60px serif';[0,1024,2048].forEach(px=>x.fillText('\u2726',px,128));return c}
+function plqCv(){const c=document.createElement('canvas');c.width=512;c.height=256;const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,256);g.addColorStop(0,'#2e1022');g.addColorStop(1,'#14060e');x.fillStyle=g;x.fillRect(0,0,512,256);
+  x.strokeStyle='#e8c070';x.lineWidth=7;x.strokeRect(14,14,484,228);x.lineWidth=2;x.strokeRect(30,30,452,196);
+  x.textAlign='center';x.textBaseline='middle';x.fillStyle=gold(x,70,190);x.font='150px '+FONT;x.fillText(NAME,256,138);return c}
+function up(unit,cvs,loc){const t=gl.createTexture();gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,t);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cvs);gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.uniform1i(loc,unit)}
+function nameCv(){const c=document.createElement('canvas');c.width=2048;c.height=256;const x=c.getContext('2d');x.textAlign='center';x.textBaseline='middle';
+  const g=x.createLinearGradient(0,60,0,210);g.addColorStop(0,'#fff3c4');g.addColorStop(.5,'#e8b650');g.addColorStop(1,'#b8832c');
+  x.font='200px '+FONT;x.lineJoin='round';x.lineWidth=9;x.strokeStyle='#7a4a12';x.strokeText(NAME,1024,140);x.fillStyle=g;x.fillText(NAME,1024,140);
+  const w=x.measureText(NAME).width/2,l=1024-w-60,r=1024+w+60;x.strokeStyle=g;x.lineWidth=7;x.lineCap='round';
+  [[l,l-420],[r,r+420]].forEach(a=>{x.beginPath();x.moveTo(a[0],150);x.lineTo(a[1],150);x.stroke()});
+  x.fillStyle=g;x.font='64px serif';x.fillText('\u2726',l+22,150);x.fillText('\u2726',r-22,150);
+  [l-440,r+440].forEach(px=>{x.beginPath();x.arc(px,150,9,0,6.3);x.fill()});return c}
+function textures(){up(0,bandCv(),U.uBand);up(1,plqCv(),U.uPlq);up(2,nameCv(),U.uNm)}textures();
+try{Promise.race([document.fonts.load('120px "Great Vibes"'),new Promise(r=>setTimeout(r,2500))]).then(()=>textures())}catch(e){}
+// ---- state and controls
+let d0=0;function fit(){const ar=innerWidth/innerHeight;const shortBoost=innerHeight<620?Math.pow(620/Math.max(innerHeight,320),.24):1;const mobile=innerWidth<700?1.12:1;d0=Math.max(13.8,11.2/ar)*shortBoost*mobile;return d0}
+let yaw=1.05,pit=.3,dist=fit(),vy=0,vp=0,auto=true,drag=false,idle=0,lit=1,litT=1,sm=99,blown=false,t0=performance.now(),last=t0,adapt=1,fa=0,fn=0;
+const ptr=new Map();
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptr.set(e.pointerId,[e.clientX,e.clientY]);drag=true;idle=0;$('hint').style.opacity=0});
+cv.addEventListener('pointermove',e=>{if(!ptr.has(e.pointerId))return;const o=ptr.get(e.pointerId);ptr.set(e.pointerId,[e.clientX,e.clientY]);
+  if(ptr.size>1)return;
+  vy=(e.clientX-o[0])*.0075;vp=(e.clientY-o[1])*.004;yaw-=vy;pit=Math.min(1.25,Math.max(.06,pit+vp))});
+const end=e=>{ptr.delete(e.pointerId);if(!ptr.size)drag=false};cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
+cv.addEventListener('wheel',e=>{e.preventDefault()},{passive:false});
+// ---- audio, effects
+let AC;window.addEventListener('message',e=>{if(e.data&&e.data.type==='stop-birthday-audio'&&AC){try{AC.close()}catch(x){}AC=null}});function song(){try{try{parent.postMessage({type:'birthday-audio-start'},'*')}catch(e){};if(AC){try{AC.close()}catch(x){}AC=null}AC=new (window.AudioContext||window.webkitAudioContext)();const n=[0,0,2,0,5,4,0,0,2,0,7,5,0,0,12,9,5,4,2,10,10,9,5,7,5],d=[.75,.25,1,1,1,2,.75,.25,1,1,1,2,.75,.25,1,1,1,1,2,.75,.25,1,1,1,2];let t=AC.currentTime+.15;
+  n.forEach((s,i)=>{const o=AC.createOscillator(),g=AC.createGain();o.type='triangle';o.frequency.value=261.63*Math.pow(2,s/12);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.2,t+.03);g.gain.exponentialRampToValueAtTime(.001,t+d[i]*.5);o.connect(g).connect(AC.destination);o.start(t);o.stop(t+d[i]*.5);t+=d[i]*.5})}catch(e){}}
+let P=[],C=[];function rs(){fx.width=innerWidth;fx.height=innerHeight}rs();
+function burst(x,y,col){for(let i=0;i<90;i++){const a=Math.random()*6.283,s=Math.random()*5+1.5;P.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:1,c:col})}}
+function confetti(){const cs=['#f0c674','#ff8fb0','#fff3c4','#c98f3a','#e8467c'];for(let i=0;i<150;i++)C.push({x:innerWidth/2,y:innerHeight*.55,vx:(Math.random()-.5)*16,vy:-Math.random()*17-4,r:Math.random()*6+3,c:cs[i%5],l:1})}
+function fxLoop(){fc.clearRect(0,0,fx.width,fx.height);P=P.filter(p=>p.l>0);P.forEach(p=>{p.vy+=.06;p.x+=p.vx;p.y+=p.vy;p.vx*=.985;p.l-=.012;fc.globalAlpha=Math.max(p.l,0);fc.fillStyle=p.c;fc.beginPath();fc.arc(p.x,p.y,2.4,0,6.3);fc.fill()});
+  C=C.filter(c=>c.l>0);C.forEach(c=>{c.vy+=.32;c.x+=c.vx;c.y+=c.vy;c.l-=.007;fc.globalAlpha=Math.max(c.l,0);fc.fillStyle=c.c;fc.fillRect(c.x,c.y,c.r,c.r*1.6)})}
+function blow(){if(blown)return;blown=true;litT=0;sm=0;$('b1').textContent='\u2728 Relight';$('wish').textContent='Your wish will come true! Happy Birthday '+NAME+' \ud83d\udc9e';$('wish').classList.add('on');song();confetti();
+  const cs=['#f0c674','#ff8fb0','#fff3c4','#9ad1ff'];for(let i=0;i<7;i++)setTimeout(()=>burst(innerWidth*(.15+Math.random()*.7),innerHeight*(.12+Math.random()*.4),cs[i%4]),500+i*420);setTimeout(()=>$('wish').classList.remove('on'),6000)}
+function relight(){blown=false;litT=1;sm=99;$('b1').textContent='\ud83c\udf82 Blow the candles';$('wish').classList.remove('on')}
+$('b1').onclick=()=>blown?relight():blow();
+$('b3').onclick=function(){auto=!auto;this.style.opacity=auto?1:.55};
+$('b2').onclick=async function(){if(blown)return;try{const s=await navigator.mediaDevices.getUserMedia({audio:true}),a=new (window.AudioContext||window.webkitAudioContext)(),n=a.createAnalyser();a.createMediaStreamSource(s).connect(n);const d=new Uint8Array(n.fftSize);this.textContent='\ud83c\udf2c\ufe0f Blow now...';
+  (function ck(){if(blown){s.getTracks().forEach(t=>t.stop());return}n.getByteTimeDomainData(d);let m=0;d.forEach(v=>m=Math.max(m,Math.abs(v-128)));if(m>85)blow();else requestAnimationFrame(ck)})()}catch(e){this.textContent='\ud83c\udfa4 Mic not found'}};
+// ---- render loop with adaptive resolution
+function size(){const base=Math.min(1,Math.sqrt(420000/(innerWidth*innerHeight)))*adapt,s=Math.min(base,Math.min(devicePixelRatio||1,2));cv.width=Math.max(160,Math.floor(innerWidth*s));cv.height=Math.max(160,Math.floor(innerHeight*s))}
+addEventListener('resize',()=>{rs();fit();dist=d0;size()});size();
+function frame(now){const dt=Math.min(.1,(now-last)/1000);last=now;fa+=now-(frame.p||now);frame.p=now;fn++;
+  if(fn==24){const ms=fa/24;fa=0;fn=0;if(ms>42&&adapt>.4){adapt*=.82;size()}else if(ms<17&&adapt<1.25){adapt*=1.12;size()}}
+  idle+=dt;if(!drag){yaw-=vy*.9;vy*=.94;if(auto&&idle>.4)yaw+=dt*.22}
+  lit+=(litT-lit)*Math.min(1,dt*4);if(sm<90)sm+=dt;
+  gl.viewport(0,0,cv.width,cv.height);gl.uniform2f(U.uR,cv.width,cv.height);gl.uniform1f(U.uT,(now-t0)/1000);gl.uniform1f(U.uYaw,yaw);gl.uniform1f(U.uPit,pit);gl.uniform1f(U.uDist,dist);gl.uniform1f(U.uLit,lit);gl.uniform1f(U.uSm,sm);
+  gl.drawArrays(gl.TRIANGLES,0,3);fxLoop();requestAnimationFrame(frame)}
+requestAnimationFrame(frame);window.__cake={blow,relight,set(y){yaw=y;auto=false},get lit(){return lit}};
+})();
+</script></body></html>
